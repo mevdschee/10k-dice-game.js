@@ -1,0 +1,267 @@
+<html>
+<body>
+<pre>
+Dice               Score
+------------------------
+1, 2, 3, 4, 5, 6 =  2000
+1, 1, 1, 1, 1, 1 =  8000
+   1, 1, 1, 1, 1 =  4000
+      1, 1, 1, 1 =  2000
+         1, 1, 1 =  1000
+d, d, d, d, d, d = d*800
+   d, d, d, d, d = d*400
+      d, d, d, d = d*200
+         d, d, d = d*100
+               1 =   100
+               5 =    50
+------------------------
+</pre>
+<div id="dice_game">Javascript must be enabled</div>
+<script>
+var state = {
+    dice:[
+        {face:roll(),taken:false,selected:false},
+        {face:roll(),taken:false,selected:false},
+        {face:roll(),taken:false,selected:false},
+        {face:roll(),taken:false,selected:false},
+        {face:roll(),taken:false,selected:false},
+        {face:roll(),taken:false,selected:false}
+    ],
+    selected:0,
+    roll:0,
+    turn:0,
+    playing:0,
+    player:[
+        {points:0},
+        {points:0}
+    ]
+}
+
+draw();
+
+function calculate() {
+    var dice = [];
+    for (var i=0;i<state.dice.length;i++) {
+        if (!state.dice[i].taken && state.dice[i].selected) {
+            dice.push(state.dice[i].face);
+        }
+    }
+    dice.sort();
+    var d = dice[0];
+    switch(JSON.stringify(dice)) {
+        case JSON.stringify([1,2,3,4,5,6]): score=2000; break;
+        case JSON.stringify([1,1,1,1,1,1]): score=8000; break;
+        case JSON.stringify([1,1,1,1,1]):   score=4000; break;
+        case JSON.stringify([1,1,1,1]):     score=2000; break;
+        case JSON.stringify([1,1,1]):       score=1000; break;
+        case JSON.stringify([d,d,d,d,d,d]): score=d*800; break;
+        case JSON.stringify([d,d,d,d,d]):   score=d*400; break;
+        case JSON.stringify([d,d,d,d]):     score=d*200; break;
+        case JSON.stringify([d,d,d]):       score=d*100; break;
+        case JSON.stringify([1]):           score=100; break;
+        case JSON.stringify([5]):           score=50; break;
+        default: score=0;
+    }
+    state.selected=score;
+}
+
+function toggle(dice) {
+    state.dice[dice].selected = !state.dice[dice].selected;
+    calculate();
+    draw();
+}
+
+function roll() {
+    return Math.floor(Math.random() * ((6 - 1) + 1) + 1);
+}
+
+function take() {
+    if (state.selected) {
+        state.roll += state.selected;
+        state.selected = 0;
+        for (var i=0;i<state.dice.length;i++) {
+            if (!state.dice[i].taken) {
+                if (state.dice[i].selected) {
+                    state.dice[i].taken = true;
+                }
+            }
+        }
+    } else {
+        for (var i=0;i<state.dice.length;i++) {
+            if (!state.dice[i].taken) {
+                if (state.dice[i].selected) {
+                    state.dice[i].selected = false;
+                }
+            }
+        }
+    }
+    draw();
+}
+
+function play() {
+    take();
+    state.turn += state.roll;
+    state.roll = 0;
+    var taken = 0;
+    for (var i=0;i<state.dice.length;i++) {
+        if (!state.dice[i].taken) {
+            state.dice[i].face = roll();
+        } else {
+            taken++;
+        }
+    }
+    if (taken==state.dice.length) {
+        for (var i=0;i<state.dice.length;i++) {
+            state.dice[i].face = roll();
+            state.dice[i].taken = false;
+            state.dice[i].selected = false;
+        }
+    }
+    draw();
+}
+
+function stop() {
+    take();
+    state.turn += state.roll;
+    state.roll = 0;
+    state.player[state.playing].points += state.turn;
+    next(); 
+}
+
+function next() {
+    state.turn = 0;
+    state.roll = 0;
+    state.playing = (state.playing+1)%state.player.length;
+    for (var i=0;i<state.dice.length;i++) {
+        state.dice[i].face = roll();
+        state.dice[i].taken = false;
+        state.dice[i].selected = false;
+    }
+    calculate();
+    draw();
+    setTimeout(cpu,200);
+}
+
+function cpu_select(count,face) {
+    var found = 0;
+    for (var i=0;i<state.dice.length;i++) {
+        if (!state.dice[i].taken) {
+            if (!face || state.dice[i].face == face) {
+                state.dice[i].selected = true;
+                found++;
+                if (found==count) break;
+            }
+        }
+    }
+    calculate();
+    take();
+    setTimeout(cpu,200);
+}
+
+function cpu() {
+    if (state.playing!=1) return;
+    var dice = [];
+    for (var i=0;i<state.dice.length;i++) {
+        if (!state.dice[i].taken) {
+            dice.push(state.dice[i].face);
+        }
+    }
+    dice.sort();
+    var str = '';
+    for (var i=0;i<dice.length;i++) {
+        str += dice[i];
+    }
+    if (str=='123456') return cpu_select(6,0);
+    for (var count=6;count>=3;count--) {
+        for (var d=7;d>=2;d--) {
+            var face = (d==7?1:d);
+            if (str.indexOf(new Array(count+1).join(face))>=0) {
+                return cpu_select(count,face);
+            }
+        }
+    }
+    if (str.indexOf('1')>=0) return cpu_select(1,1);
+    if (str.indexOf('5')>=0) return cpu_select(1,5);
+    setTimeout(cpu_end,200);
+}
+
+function cpu_end()
+{
+    if (state.roll+state.selected && state.turn+state.roll+state.selected>=350) {
+        var taken = 0;
+        for (var i=0;i<state.dice.length;i++) {
+            if (state.dice[i].taken) {
+                taken++;
+            }
+        }
+        if (taken==state.dice.length) {
+            play();
+            setTimeout(cpu,200);
+        } else {
+            stop();
+        }
+    } else {
+        if (state.roll+state.selected) {
+            play();
+            setTimeout(cpu,200);
+        } else {
+            next();
+        }
+    }
+}
+
+function draw() {
+    var html = '<span style="font-family: sans-serif">';
+    for (var p=0;p<state.player.length;p++) {
+        html += '<span style="color: '+(p==state.playing?'black':'silver')+';">';
+        html += 'player '+(p+1)+': ';
+        html += state.player[p].points;
+        if (p==state.playing) {
+            html += '<span style="color: '+(state.turn+state.roll+state.selected>=350?'black':'silver')+';">';
+            html += '+'+(state.turn+state.roll+state.selected);
+            html += '</span>';
+        }
+        html += '</span><br/>';
+    }
+    html += '<span style="font-size: 400%">';
+    for (var i=0;i<state.dice.length;i++) {
+        if (state.dice[i].taken) {
+            html += '<span style="color: silver">';
+            html += '&#'+(9855+state.dice[i].face)+';';
+            html += '</span>';
+        } else {
+            html += '<a href="javascript:toggle('+i+')" ';
+            html += 'style="color: '+(state.dice[i].selected?'silver':'black')+'">';
+            html += '&#'+(9855+state.dice[i].face)+';';
+            html += '</a>';
+        }
+    }
+    html += '<br/></span>';
+    html += '<br/>';
+    var button_style = [
+        'border: 1px solid silver; padding: .5em; text-decoration: none; color: silver',
+        'border: 1px solid black; padding: .5em; text-decoration: none; color: black;'
+    ];
+    if (state.selected) {
+        html += '<a href="javascript:take()" style="'+button_style[1]+'">&#10133; add</a> ';
+    } else {
+        html += '<span style="'+button_style[0]+'">&#10133; add</span> ';
+    }
+    if (state.roll+state.selected) {
+        html += '<a href="javascript:play()" style="'+button_style[1]+'">&#9654; play</a> ';
+    } else {
+        html += '<span style="'+button_style[0]+'">&#9654; play</span> ';
+    }
+    if (state.roll+state.selected && state.turn+state.roll+state.selected>=350) {
+        html += '<a href="javascript:stop()" style="'+button_style[1]+'">&#9209; stop</a> ';
+        html += '<span style="'+button_style[0]+'">&#9197; next</span> ';
+    } else {
+        html += '<span style="'+button_style[0]+'">&#9209; stop</span> ';
+        html += '<a href="javascript:next()" style="'+button_style[1]+'">&#9197; next</a> ';
+    }
+    html += '</span>';
+    document.getElementById('dice_game').innerHTML = html;
+}
+</script>
+</body>
+</html>
